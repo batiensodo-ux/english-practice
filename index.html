@@ -147,6 +147,30 @@
 
   .field-label{font-size:11px;color:var(--ink-soft);text-transform:none;margin-bottom:4px;display:block;}
   .small-link{font-size:11px;color:var(--teal);background:none;border:none;padding:0;text-decoration:underline;}
+
+  /* ---- matching game ---- */
+  .match-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .match-tile{
+    border:1px solid var(--line);border-radius:6px;padding:10px 8px;font-size:12.5px;
+    background:#fff;text-align:left;line-height:1.35;
+  }
+  .match-tile.selected{border-color:var(--teal);background:var(--teal-soft);}
+  .match-tile.correct{border-color:var(--teal);background:var(--teal-soft);opacity:0.45;}
+  .match-tile.wrong{border-color:var(--red);background:#F6E4E1;}
+  .match-hint{font-size:12px;color:var(--ink-soft);margin-bottom:10px;}
+
+  /* ---- listening quiz ---- */
+  .audio-controls{display:flex;gap:8px;align-items:center;margin:10px 0;flex-wrap:wrap;}
+  .rate-select{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:6px;padding:7px 8px;background:#fff;}
+  .quiz-q{font-size:13.5px;margin-bottom:10px;font-weight:600;}
+  .quiz-opt{
+    display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:6px;
+    padding:9px 12px;margin-bottom:8px;background:#fff;font-size:13px;
+  }
+  .quiz-opt.correct{border-color:var(--teal);background:var(--teal-soft);}
+  .quiz-opt.wrong{border-color:var(--red);background:#F6E4E1;}
+  .quiz-opt:disabled{opacity:0.9;}
+  .transcript-box{font-style:italic;color:var(--ink-soft);font-size:13px;background:#FAFAF7;border-radius:6px;padding:10px;margin-top:8px;}
 </style>
 </head>
 <body>
@@ -186,13 +210,14 @@
 
   <!-- LISTEN -->
   <section class="panel" id="panel-listen">
-    <h2 class="panel-title">Nghe — nguồn thật trong ngành</h2>
-    <p class="panel-desc">Nghe 10-15 phút nội dung thật từ các công ty bạn nhắm tới, để quen tai với cách họ nói.</p>
-    <div class="card" id="listenSuggestion"></div>
+    <h2 class="panel-title">Nghe — nghe rồi trả lời câu hỏi</h2>
+    <p class="panel-desc">Nghe đoạn hội thoại ngắn, sau đó trả lời câu hỏi kiểm tra hiểu bài — nghe mà không kiểm tra lại thì dễ trôi qua tai.</p>
+    <div class="card" id="listeningExercise"></div>
     <div class="card">
+      <b style="font-size:13px;">Nghe thêm nguồn thật (không bắt buộc)</b>
+      <div class="example" style="margin:6px 0 10px;">Sau khi xong bài trên, nếu còn thời gian, nghe thêm nội dung thật từ các công ty bạn nhắm tới:</div>
       <div id="sourceList"></div>
     </div>
-    <button class="btn full" id="markListenDone">Đánh dấu đã nghe hôm nay</button>
   </section>
 
   <!-- SPEAK -->
@@ -204,7 +229,20 @@
       <div class="topic-tag" id="phraseDay">CÂU PHẢN XẠ</div>
       <div class="term" id="phraseText">Đang tải…</div>
       <p class="example" id="phraseNote"></p>
-      <button class="btn secondary" id="refreshPhrase">Đổi câu mới (dùng khi đã thuộc)</button>
+
+      <div class="audio-controls">
+        <button class="btn secondary" id="playOriginal">▶ Nghe mẫu</button>
+        <select class="rate-select" id="phraseRate">
+          <option value="0.75">Chậm</option>
+          <option value="1" selected>Bình thường</option>
+        </select>
+      </div>
+      <div class="audio-controls">
+        <button class="btn" id="recordBtn">🎙 Bắt đầu ghi âm shadowing</button>
+      </div>
+      <div id="shadowResult"></div>
+
+      <button class="btn subtle full" id="refreshPhrase" style="margin-top:10px;">Đổi câu mới (dùng khi đã thuộc)</button>
     </div>
 
     <div class="card">
@@ -516,7 +554,11 @@ function renderVocabQueue(due){
 function renderVocabCard(){
   const area = document.getElementById('vocabArea');
   if(vocabIdx >= vocabQueue.length){
-    area.innerHTML = `<div class="card empty">Xong hết từ hôm nay 🎉<br>Quay lại vào ngày mai để ôn tiếp.</div>`;
+    if(vocabQueue.length === 0){
+      area.innerHTML = `<div class="card empty">Không có từ để ôn hôm nay.</div>`;
+      return;
+    }
+    renderMatchGame(vocabQueue.slice(0,6));
     return;
   }
   const v = vocabQueue[vocabIdx];
@@ -558,30 +600,187 @@ function rateVocab(v, correct){
   renderVocabCard();
 }
 
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function renderMatchGame(words){
+  const area = document.getElementById('vocabArea');
+  if(!words.length){
+    finishVocabDay();
+    return;
+  }
+  const terms = shuffle(words.map((w,i)=>({key:i, text:w.term})));
+  const meanings = shuffle(words.map((w,i)=>({key:i, text:w.meaning})));
+  area.innerHTML = `
+    <div class="card">
+      <div class="match-hint">Nối từ với nghĩa đúng — bấm 1 từ bên trái rồi 1 nghĩa bên phải.</div>
+      <div class="match-grid">
+        <div id="matchTerms">${terms.map(t=>`<button class="match-tile" data-type="term" data-key="${t.key}">${t.text}</button>`).join('')}</div>
+        <div id="matchMeanings">${meanings.map(m=>`<button class="match-tile" data-type="meaning" data-key="${m.key}">${m.text}</button>`).join('')}</div>
+      </div>
+    </div>`;
+
+  let selected = {term:null, meaning:null};
+  let matched = 0;
+  const tiles = area.querySelectorAll('.match-tile');
+  tiles.forEach(el=>{
+    el.onclick = ()=>{
+      if(el.classList.contains('correct')) return;
+      const type = el.dataset.type;
+      const slot = type==='term' ? 'term' : 'meaning';
+      if(selected[slot]) selected[slot].el.classList.remove('selected');
+      selected[slot] = {key: el.dataset.key, el};
+      el.classList.add('selected');
+      if(selected.term && selected.meaning){
+        if(selected.term.key === selected.meaning.key){
+          selected.term.el.classList.remove('selected');
+          selected.meaning.el.classList.remove('selected');
+          selected.term.el.classList.add('correct');
+          selected.meaning.el.classList.add('correct');
+          matched++;
+          selected = {term:null, meaning:null};
+          if(matched === words.length){
+            setTimeout(finishVocabDay, 500);
+          }
+        } else {
+          selected.term.el.classList.add('wrong');
+          selected.meaning.el.classList.add('wrong');
+          const t = selected.term.el, m = selected.meaning.el;
+          setTimeout(()=>{
+            t.classList.remove('selected','wrong');
+            m.classList.remove('selected','wrong');
+          }, 600);
+          selected = {term:null, meaning:null};
+        }
+      }
+    };
+  });
+}
+
+function finishVocabDay(){
+  document.getElementById('vocabArea').innerHTML =
+    `<div class="card empty">Xong hết từ hôm nay 🎉<br>Quay lại vào ngày mai để ôn tiếp.</div>`;
+  markActiveToday();
+}
+
 /* =========================================================
-   LISTEN MODULE
+   LISTEN MODULE — AI passage + TTS + comprehension quiz
 ========================================================= */
-function renderListen(){
+function renderSourceList(){
   const dayIdx = new Date().getDate() % SOURCES.length;
   const s = SOURCES[dayIdx];
-  document.getElementById('listenSuggestion').innerHTML =
-    `<b style="font-size:13px;">Gợi ý hôm nay</b><br>
-     <span style="font-size:14px;">Tìm và nghe nội dung của <b>${s.name}</b></span><br>
-     <span class="example">${s.hint}. Thử tìm trên YouTube: "${s.name} sustainability" hoặc "${s.name} energy".</span>`;
-  document.getElementById('sourceList').innerHTML = SOURCES.map(x=>
-    `<div class="source-item"><div><div class="name">${x.name}</div><div class="hint">${x.hint}</div></div></div>`
-  ).join('');
-  const btn = document.getElementById('markListenDone');
-  const done = state.listenDoneDate === todayStr();
-  btn.textContent = done ? 'Đã đánh dấu hôm nay ✓' : 'Đánh dấu đã nghe hôm nay';
-  btn.disabled = done;
+  document.getElementById('sourceList').innerHTML =
+    `<div class="example" style="margin-bottom:8px;">Gợi ý hôm nay: nội dung của <b>${s.name}</b> — ${s.hint}. Thử tìm trên YouTube: "${s.name} sustainability".</div>` +
+    SOURCES.map(x=>`<div class="source-item"><div><div class="name">${x.name}</div><div class="hint">${x.hint}</div></div></div>`).join('');
 }
-document.getElementById('markListenDone').onclick = ()=>{
-  state.listenDoneDate = todayStr();
-  persistAll();
-  markActiveToday();
-  renderListen();
-};
+
+let listeningState = load('listeningToday', null);
+if(listeningState && listeningState.date !== todayStr()) listeningState = null;
+let listenQIdx = 0, listenScore = 0;
+
+function speakText(text, rate){
+  if(!window.speechSynthesis){ alert('Trình duyệt này không hỗ trợ đọc giọng nói tự động.'); return; }
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'en-US';
+  utter.rate = rate || 1;
+  window.speechSynthesis.speak(utter);
+}
+
+function renderListeningExercise(){
+  const box = document.getElementById('listeningExercise');
+  if(!listeningState){
+    box.innerHTML = `<div class="example" style="margin-bottom:10px;">Chưa có bài nghe hôm nay.</div>
+      <button class="btn full" id="genListenBtn">Tạo bài nghe hôm nay</button>`;
+    document.getElementById('genListenBtn').onclick = generateListeningExercise;
+    return;
+  }
+  box.innerHTML = `
+    <div class="topic-tag">${listeningState.topic}</div>
+    <div class="audio-controls">
+      <button class="btn secondary" id="playBtn">▶ Nghe đoạn hội thoại</button>
+      <select class="rate-select" id="rateSelect">
+        <option value="0.75">Chậm</option>
+        <option value="1" selected>Bình thường</option>
+      </select>
+    </div>
+    <button class="small-link" id="toggleTranscript">Hiện transcript</button>
+    <div class="transcript-box" id="transcriptBox" style="display:none;">${listeningState.passage}</div>
+    <div id="quizArea" style="margin-top:14px;"></div>
+  `;
+  document.getElementById('playBtn').onclick = ()=>{
+    speakText(listeningState.passage, parseFloat(document.getElementById('rateSelect').value));
+  };
+  document.getElementById('toggleTranscript').onclick = (e)=>{
+    const t = document.getElementById('transcriptBox');
+    const show = t.style.display === 'none';
+    t.style.display = show ? 'block' : 'none';
+    e.target.textContent = show ? 'Ẩn transcript' : 'Hiện transcript';
+  };
+  listenQIdx = 0; listenScore = 0;
+  renderListenQuiz();
+}
+
+function renderListenQuiz(){
+  const box = document.getElementById('quizArea');
+  if(listeningState.completed){
+    box.innerHTML = `<div class="card empty">Đã hoàn thành bài nghe hôm nay — điểm ${listeningState.score}/${listeningState.questions.length} ✓</div>`;
+    return;
+  }
+  if(listenQIdx >= listeningState.questions.length){
+    listeningState.completed = true;
+    listeningState.score = listenScore;
+    save('listeningToday', listeningState);
+    markActiveToday();
+    box.innerHTML = `<div class="card empty">Hoàn thành! Điểm ${listenScore}/${listeningState.questions.length} 🎉</div>`;
+    return;
+  }
+  const q = listeningState.questions[listenQIdx];
+  box.innerHTML = `
+    <div class="quiz-q">Câu ${listenQIdx+1}/${listeningState.questions.length}: ${q.q}</div>
+    ${q.options.map((opt,i)=>`<button class="quiz-opt" data-i="${i}">${opt}</button>`).join('')}
+  `;
+  box.querySelectorAll('.quiz-opt').forEach(btn=>{
+    btn.onclick = ()=>{
+      const i = parseInt(btn.dataset.i);
+      const opts = box.querySelectorAll('.quiz-opt');
+      opts.forEach(b=>b.disabled = true);
+      if(i === q.correctIndex){ btn.classList.add('correct'); listenScore++; }
+      else{ btn.classList.add('wrong'); opts[q.correctIndex].classList.add('correct'); }
+      setTimeout(()=>{ listenQIdx++; renderListenQuiz(); }, 1300);
+    };
+  });
+}
+
+async function generateListeningExercise(){
+  const box = document.getElementById('listeningExercise');
+  box.innerHTML = `<div class="loading">Đang tạo bài nghe…</div>`;
+  const prompt = `Tạo một đoạn hội thoại hoặc độc thoại tiếng Anh ngắn (60-90 từ), trình độ trung cấp, chủ đề "${currentTopic()}", bối cảnh môi trường làm việc quốc tế ngành energy audit/sustainability/HVAC.
+Sau đó tạo 3 câu hỏi trắc nghiệm kiểm tra khả năng nghe hiểu (mỗi câu 4 lựa chọn, chỉ 1 đáp án đúng), bằng tiếng Anh đơn giản.
+Trả về JSON: {"passage":"...", "questions":[{"q":"...","options":["...","...","...","..."],"correctIndex":0}]}
+Chỉ trả JSON, không thêm chữ nào khác.`;
+  try{
+    const {text} = await callGemini('bulk_task', prompt, {json:true});
+    const obj = tryParseJson(text);
+    if(obj && obj.passage && Array.isArray(obj.questions) && obj.questions.length){
+      listeningState = { date: todayStr(), topic: currentTopic(), passage: obj.passage, questions: obj.questions, completed:false, score:0 };
+      save('listeningToday', listeningState);
+      renderListeningExercise();
+    } else {
+      box.innerHTML = `<div class="err-banner">Không tạo được bài nghe, thử lại.</div><button class="btn full" id="retryListen">Thử lại</button>`;
+      document.getElementById('retryListen').onclick = generateListeningExercise;
+    }
+  }catch(e){
+    box.innerHTML = `<div class="err-banner">${e.message}</div><button class="btn full" id="retryListen">Thử lại</button>`;
+    document.getElementById('retryListen').onclick = generateListeningExercise;
+  }
+}
 
 /* =========================================================
    SPEAK MODULE — phrase drill + mock interview
@@ -616,6 +815,79 @@ Trả về JSON: {"text":"câu tiếng Anh", "note":"giải thích ngắn bằng
   }
 }
 document.getElementById('refreshPhrase').onclick = generateNewPhrase;
+document.getElementById('playOriginal').onclick = ()=>{
+  if(!state.currentPhrase) return;
+  speakText(state.currentPhrase.text, parseFloat(document.getElementById('phraseRate').value));
+};
+
+/* ---- Shadowing: record yourself, play back, rough word-match check ---- */
+let shadowRecorder = null;
+let shadowChunks = [];
+let shadowRecognition = null;
+let shadowTranscript = '';
+let isShadowRecording = false;
+
+function normWords(s){
+  return s.toLowerCase().replace(/[^\w\s']/g,'').split(/\s+/).filter(Boolean);
+}
+function buildWordCompare(target, said){
+  const t = normWords(target);
+  const saidSet = new Set(normWords(said));
+  return t.map(w => saidSet.has(w)
+    ? `<span style="color:var(--teal);font-weight:600;">${w}</span>`
+    : `<span style="color:var(--red);text-decoration:underline;">${w}</span>`
+  ).join(' ');
+}
+
+async function startShadowing(){
+  const resultBox = document.getElementById('shadowResult');
+  const btn = document.getElementById('recordBtn');
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    shadowChunks = [];
+    shadowRecorder = new MediaRecorder(stream);
+    shadowRecorder.ondataavailable = e => shadowChunks.push(e.data);
+    shadowRecorder.onstop = ()=>{
+      const blob = new Blob(shadowChunks, {type:'audio/webm'});
+      const url = URL.createObjectURL(blob);
+      renderShadowResult(url, shadowTranscript);
+      stream.getTracks().forEach(t=>t.stop());
+    };
+    shadowRecorder.start();
+    shadowTranscript = '';
+    if(SpeechRec){
+      shadowRecognition = new SpeechRec();
+      shadowRecognition.lang = 'en-US';
+      shadowRecognition.interimResults = false;
+      shadowRecognition.onresult = e => { shadowTranscript = e.results[0][0].transcript; };
+      shadowRecognition.onerror = ()=>{};
+      try{ shadowRecognition.start(); }catch(e){}
+    }
+    isShadowRecording = true;
+    btn.textContent = '⏹ Dừng ghi âm';
+    resultBox.innerHTML = '';
+  }catch(e){
+    resultBox.innerHTML = `<div class="err-banner">Không truy cập được micro: ${e.message}. Kiểm tra quyền micro cho trang này trong cài đặt trình duyệt.</div>`;
+  }
+}
+function stopShadowing(){
+  if(shadowRecorder && shadowRecorder.state !== 'inactive') shadowRecorder.stop();
+  if(shadowRecognition){ try{ shadowRecognition.stop(); }catch(e){} }
+  isShadowRecording = false;
+  document.getElementById('recordBtn').textContent = '🎙 Bắt đầu ghi âm shadowing';
+}
+document.getElementById('recordBtn').onclick = ()=> isShadowRecording ? stopShadowing() : startShadowing();
+
+function renderShadowResult(url, transcript){
+  const box = document.getElementById('shadowResult');
+  const target = state.currentPhrase ? state.currentPhrase.text : '';
+  box.innerHTML = `
+    <div class="audio-controls"><audio controls src="${url}"></audio></div>
+    ${ transcript
+        ? `<div class="feedback"><b>AI nghe được:</b> "${transcript}"<div style="margin-top:6px;">${buildWordCompare(target, transcript)}</div><div class="example" style="margin-top:6px;">Chữ đỏ = từ AI không nhận ra được trong bản ghi — nghe lại đoạn ghi âm để tự kiểm tra phát âm chỗ đó.</div></div>`
+        : `<div class="example">Trình duyệt này không tự nhận diện được giọng nói — nghe lại bản ghi của bạn ở trên và tự so với "Nghe mẫu".</div>`
+    }`;
+}
 
 let interviewTurns = 0;
 const MAX_INTERVIEW_TURNS = 6;
@@ -766,7 +1038,8 @@ document.getElementById('weeklySummaryBtn').onclick = ()=>{
 function init(){
   renderStreak();
   quotaLine();
-  renderListen();
+  renderSourceList();
+  renderListeningExercise();
   ensureTodayVocab();
   ensurePhrase();
   if(!state.currentVnSentence){ newWritingSentence(); }
