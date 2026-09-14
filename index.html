@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trạm luyện tiếng Anh — Energy Audit &amp; HVAC</title>
+<style>
+  :root{
+    --paper:#F3F1EA;
+    --ink:#1E2622;
+    --ink-soft:#4B564F;
+    --line:#D9D4C6;
+    --teal:#265C61;
+    --teal-soft:#DCE9E8;
+    --amber:#B0731F;
+    --amber-soft:#F3E4CC;
+    --red:#9C3B2E;
+    --card:#FFFFFF;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:64px;
+  }
+  a{color:var(--teal);}
+  button{
+    font-family:var(--sans);
+    cursor:pointer;
+  }
+  .wrap{max-width:720px;margin:0 auto;padding:0 16px;}
+
+  /* ---- Header / status bar ---- */
+  header.top{
+    background:var(--ink);
+    color:var(--paper);
+    padding:18px 0 16px;
+  }
+  header.top .wrap{display:flex;flex-direction:column;gap:10px;}
+  .brand{display:flex;justify-content:space-between;align-items:baseline;}
+  .brand h1{font-size:16px;margin:0;font-weight:600;letter-spacing:0.2px;}
+  .brand .sub{font-family:var(--mono);font-size:11px;color:#A9B5AC;}
+  .gear{
+    background:none;border:1px solid #45524A;color:#DCE4DF;
+    border-radius:6px;padding:5px 10px;font-size:12px;
+  }
+  .stat-row{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;color:#B9C3BC;}
+  .stat-row b{color:var(--paper);font-size:15px;font-weight:600;}
+  .days{display:flex;gap:5px;}
+  .day-dot{width:16px;height:16px;border-radius:3px;background:#3A453E;display:flex;align-items:center;justify-content:center;font-size:9px;color:#8B968F;}
+  .day-dot.done{background:var(--amber);color:#241705;}
+  .quota-bar{display:flex;gap:16px;font-family:var(--mono);font-size:11px;color:#9FAAA3;}
+  .quota-bar span b{color:#D8E0DA;}
+
+  /* ---- Tabs ---- */
+  nav.tabs{
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:5;
+  }
+  nav.tabs .wrap{display:flex;gap:2px;}
+  nav.tabs button{
+    flex:1;background:none;border:none;padding:12px 4px 10px;
+    font-size:13px;color:var(--ink-soft);border-bottom:2px solid transparent;
+  }
+  nav.tabs button.active{color:var(--ink);border-bottom-color:var(--teal);font-weight:600;}
+
+  main{padding-top:20px;}
+  section.panel{display:none;}
+  section.panel.active{display:block;}
+
+  h2.panel-title{font-size:15px;margin:0 0 4px;color:var(--ink);}
+  p.panel-desc{font-size:13px;color:var(--ink-soft);margin:0 0 16px;}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:16px;
+    margin-bottom:14px;
+  }
+  .card.empty{color:var(--ink-soft);font-size:13px;text-align:center;padding:28px 16px;}
+
+  .btn{
+    display:inline-block;background:var(--teal);color:#fff;border:none;
+    border-radius:6px;padding:9px 16px;font-size:13px;font-weight:600;
+  }
+  .btn:disabled{opacity:0.5;cursor:default;}
+  .btn.secondary{background:none;border:1px solid var(--teal);color:var(--teal);}
+  .btn.subtle{background:none;border:1px solid var(--line);color:var(--ink-soft);}
+  .btn.full{display:block;width:100%;text-align:center;}
+  .btn.correct{background:var(--teal);}
+  .btn.wrong{background:var(--red);}
+
+  /* vocab card */
+  .term{font-size:19px;font-weight:600;margin:0 0 4px;}
+  .topic-tag{font-family:var(--mono);font-size:10px;color:var(--teal);background:var(--teal-soft);
+    display:inline-block;padding:2px 7px;border-radius:4px;margin-bottom:10px;}
+  .meaning-box{background:var(--teal-soft);border-radius:6px;padding:12px;margin:10px 0;font-size:13px;display:none;}
+  .meaning-box.show{display:block;}
+  .example{font-style:italic;color:var(--ink-soft);font-size:13px;margin-top:6px;}
+  .rate-row{display:flex;gap:8px;margin-top:12px;}
+  .rate-row .btn{flex:1;}
+  .progress-line{font-family:var(--mono);font-size:11px;color:var(--ink-soft);margin-bottom:12px;}
+
+  /* listening */
+  .source-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);}
+  .source-item:last-child{border-bottom:none;}
+  .source-item .name{font-size:13px;font-weight:600;}
+  .source-item .hint{font-size:12px;color:var(--ink-soft);}
+
+  /* writing/speaking */
+  textarea{
+    width:100%;border:1px solid var(--line);border-radius:6px;padding:10px;
+    font-family:var(--sans);font-size:13px;resize:vertical;min-height:70px;
+  }
+  .vn-sentence{font-size:14px;background:var(--amber-soft);border-radius:6px;padding:12px;margin-bottom:10px;}
+  .feedback{border-left:3px solid var(--teal);padding:10px 12px;margin-top:12px;font-size:13px;background:#FAFAF7;}
+  .feedback .tag{display:inline-block;font-family:var(--mono);font-size:10px;background:var(--teal-soft);color:var(--teal);padding:2px 6px;border-radius:4px;margin:2px 4px 0 0;}
+
+  .chat-log{display:flex;flex-direction:column;gap:10px;margin-bottom:12px;}
+  .msg{max-width:85%;padding:9px 12px;border-radius:8px;font-size:13px;}
+  .msg.ai{background:var(--teal-soft);align-self:flex-start;}
+  .msg.me{background:var(--amber-soft);align-self:flex-end;}
+  .chat-input-row{display:flex;gap:8px;}
+  .chat-input-row textarea{min-height:44px;}
+  .mic-btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:0 12px;font-size:16px;}
+  .mic-btn.listening{background:var(--red);color:#fff;border-color:var(--red);}
+
+  .loading{font-family:var(--mono);font-size:12px;color:var(--ink-soft);padding:10px 0;}
+  .err-banner{background:#F6E4E1;color:var(--red);border-radius:6px;padding:10px 12px;font-size:12px;margin-bottom:12px;}
+
+  /* settings modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(20,26,23,0.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:20;}
+  .modal-bg.show{display:flex;}
+  .modal{background:#fff;border-radius:10px;padding:20px;max-width:420px;width:100%;}
+  .modal h3{margin:0 0 8px;font-size:15px;}
+  .modal p{font-size:12px;color:var(--ink-soft);margin:0 0 12px;}
+  .modal input[type=text]{width:100%;border:1px solid var(--line);border-radius:6px;padding:9px;font-family:var(--mono);font-size:12px;margin-bottom:12px;}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;}
+
+  .field-label{font-size:11px;color:var(--ink-soft);text-transform:none;margin-bottom:4px;display:block;}
+  .small-link{font-size:11px;color:var(--teal);background:none;border:none;padding:0;text-decoration:underline;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1>Trạm luyện tiếng Anh</h1>
+      <button class="gear" id="openSettings">⚙ Cài đặt</button>
+    </div>
+    <div class="sub">Energy Audit · HVAC/Refrigeration · Sustainability &amp; ESG</div>
+    <div class="stat-row">
+      <div>🔥 Streak: <b id="streakCount">0</b> ngày</div>
+      <div class="days" id="dayDots"></div>
+    </div>
+    <div class="quota-bar" id="quotaBar"></div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <div class="wrap">
+    <button data-tab="vocab" class="active">Từ vựng</button>
+    <button data-tab="listen">Nghe</button>
+    <button data-tab="speak">Nói</button>
+    <button data-tab="write">Viết</button>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <!-- VOCAB -->
+  <section class="panel active" id="panel-vocab">
+    <h2 class="panel-title">Từ vựng — ôn giãn cách</h2>
+    <p class="panel-desc">Ôn từ đến hạn trước, sau đó học thêm từ mới theo chủ đề hôm nay.</p>
+    <div id="vocabArea"></div>
+  </section>
+
+  <!-- LISTEN -->
+  <section class="panel" id="panel-listen">
+    <h2 class="panel-title">Nghe — nguồn thật trong ngành</h2>
+    <p class="panel-desc">Nghe 10-15 phút nội dung thật từ các công ty bạn nhắm tới, để quen tai với cách họ nói.</p>
+    <div class="card" id="listenSuggestion"></div>
+    <div class="card">
+      <div id="sourceList"></div>
+    </div>
+    <button class="btn full" id="markListenDone">Đánh dấu đã nghe hôm nay</button>
+  </section>
+
+  <!-- SPEAK -->
+  <section class="panel" id="panel-speak">
+    <h2 class="panel-title">Nói</h2>
+    <p class="panel-desc">Câu phản xạ lặp lại vài ngày để "vào miệng", và một buổi phỏng vấn thử có AI phản hồi.</p>
+
+    <div class="card">
+      <div class="topic-tag" id="phraseDay">CÂU PHẢN XẠ</div>
+      <div class="term" id="phraseText">Đang tải…</div>
+      <p class="example" id="phraseNote"></p>
+      <button class="btn secondary" id="refreshPhrase">Đổi câu mới (dùng khi đã thuộc)</button>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <b style="font-size:13px;">Phỏng vấn thử</b>
+        <span class="progress-line" id="interviewCount"></span>
+      </div>
+      <div class="chat-log" id="chatLog"></div>
+      <div class="chat-input-row">
+        <textarea id="chatInput" placeholder="Gõ câu trả lời của bạn…"></textarea>
+        <button class="mic-btn" id="micBtn" title="Nói bằng giọng">🎤</button>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px;">
+        <button class="btn" id="sendChat">Gửi</button>
+        <button class="btn subtle" id="startInterview">Bắt đầu phỏng vấn mới</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- WRITE -->
+  <section class="panel" id="panel-write">
+    <h2 class="panel-title">Viết — dịch câu kiểu báo cáo</h2>
+    <p class="panel-desc">Dịch câu tiếng Việt sang tiếng Anh theo văn phong kỹ thuật, AI chấm và chỉ lỗi.</p>
+    <div class="card">
+      <div class="vn-sentence" id="vnSentence">Đang tải câu…</div>
+      <textarea id="writeInput" placeholder="Viết bản dịch tiếng Anh của bạn ở đây…"></textarea>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="btn" id="gradeWriting">Chấm điểm</button>
+        <button class="btn subtle" id="newSentence">Câu khác</button>
+      </div>
+      <div id="writeFeedback"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <b style="font-size:13px;">Tổng kết lỗi hay gặp</b>
+        <button class="small-link" id="weeklySummaryBtn">Xem tổng kết tuần</button>
+      </div>
+      <div id="weeklySummary" style="margin-top:8px;"></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Settings modal -->
+<div class="modal-bg" id="settingsModal">
+  <div class="modal">
+    <h3>Cài đặt</h3>
+    <p>Nhập Gemini API key (miễn phí, lấy tại Google AI Studio). Key chỉ lưu trên trình duyệt của bạn, không gửi đi đâu khác.</p>
+    <label class="field-label">Gemini API key</label>
+    <input type="text" id="apiKeyInput" placeholder="AIza...">
+    <div class="modal-actions">
+      <button class="btn subtle" id="closeSettings">Đóng</button>
+      <button class="btn" id="saveApiKey">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   CONFIG
+========================================================= */
+const MODELS = {
+  'gemini-3.7-flash':              { rpm:5,  rpd:20,   tier:'quality' },
+  'gemini-3.6-flash':              { rpm:5,  rpd:20,   tier:'quality' },
+  'gemini-3.5-flash':              { rpm:5,  rpd:20,   tier:'quality' },
+  'gemini-3-flash-preview':        { rpm:5,  rpd:20,   tier:'quality' },
+  'gemini-3.5-flash-lite':         { rpm:15, rpd:500,  tier:'lite' },
+  'gemini-3.1-flash-lite-preview': { rpm:15, rpd:500,  tier:'lite' },
+  'gemma-4-31b-it':                { rpm:30, rpd:14400,tier:'bulk' },
+  'gemma-4-26b-a4b-it':            { rpm:30, rpd:14400,tier:'bulk' },
+};
+
+const CHAINS = {
+  // dùng nhiều lần/ngày -> ưu tiên model quota cao
+  bulk_task: ['gemini-3.5-flash-lite','gemini-3.1-flash-lite-preview','gemma-4-31b-it','gemma-4-26b-a4b-it'],
+  // hội thoại phỏng vấn -> ưu tiên chất lượng, dự phòng theo đúng thứ tự đã chốt
+  mock_interview: ['gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3-flash-preview',
+                    'gemini-3.5-flash-lite','gemini-3.1-flash-lite-preview',
+                    'gemma-4-31b-it','gemma-4-26b-a4b-it'],
+};
+
+const TOPICS = [
+  'Energy Audit',
+  'HVAC & Refrigeration',
+  'Sustainability & ESG',
+  'Carbon & GHG Reporting',
+  'Green Building Certification (LEED/EDGE/LOTUS)',
+  'Interview & Workplace English',
+];
+
+const SOURCES = [
+  { name:'JLL', hint:'Sustainability / ESG webinars, YouTube' },
+  { name:'CBRE', hint:'Energy & Sustainability insights' },
+  { name:'Bureau Veritas', hint:'Certification & audit explainer videos' },
+  { name:'Schneider Electric', hint:'Energy efficiency case studies' },
+  { name:'DNV', hint:'Sustainability & assurance talks' },
+];
+
+const REVIEW_STEPS = [1,3,7,14,30,60]; // ngày
+
+/* =========================================================
+   STORAGE HELPERS
+========================================================= */
+const todayStr = () => new Date().toISOString().slice(0,10);
+const load = (k,fallback) => { try{ const v = localStorage.getItem(k); return v?JSON.parse(v):fallback; }catch(e){ return fallback; } };
+const save = (k,v) => localStorage.setItem(k, JSON.stringify(v));
+
+let state = {
+  apiKey: load('apiKey',''),
+  vocabBank: load('vocabBank', []),      // {id,term,meaning,example,topic,interval,nextReview}
+  topicIndex: load('topicIndex', 0),
+  streak: load('streak', {lastActiveDate:null, count:0, last7:[false,false,false,false,false,false,false]}),
+  quota: load('quota', {date: todayStr(), counts:{}, lastCall:{}}),
+  writingErrors: load('writingErrors', []), // {date, tags:[]}
+  currentVnSentence: load('currentVnSentence', null),
+  currentPhrase: load('currentPhrase', null),
+  interviewHistory: [],
+  listenDoneDate: load('listenDoneDate', null),
+};
+
+function persistAll(){
+  save('apiKey', state.apiKey);
+  save('vocabBank', state.vocabBank);
+  save('topicIndex', state.topicIndex);
+  save('streak', state.streak);
+  save('quota', state.quota);
+  save('writingErrors', state.writingErrors);
+  save('currentVnSentence', state.currentVnSentence);
+  save('currentPhrase', state.currentPhrase);
+  save('listenDoneDate', state.listenDoneDate);
+}
+
+if(state.quota.date !== todayStr()){
+  state.quota = {date: todayStr(), counts:{}, lastCall:{}};
+  persistAll();
+}
+
+/* =========================================================
+   STREAK
+========================================================= */
+function markActiveToday(){
+  const t = todayStr();
+  if(state.streak.lastActiveDate === t) { renderStreak(); return; }
+  const y = new Date(Date.now()-86400000).toISOString().slice(0,10);
+  state.streak.count = (state.streak.lastActiveDate === y) ? state.streak.count+1 : 1;
+  state.streak.lastActiveDate = t;
+  const dow = new Date().getDay();
+  const last7 = [false,false,false,false,false,false,false];
+  last7[dow] = true;
+  state.streak.last7 = last7.map((v,i)=> i===dow ? true : state.streak.last7[i] && false);
+  persistAll();
+  renderStreak();
+}
+function renderStreak(){
+  document.getElementById('streakCount').textContent = state.streak.count;
+  const el = document.getElementById('dayDots');
+  const labels = ['CN','T2','T3','T4','T5','T6','T7'];
+  el.innerHTML = labels.map((l,i)=>{
+    const done = state.streak.last7 && state.streak.last7[i];
+    return `<div class="day-dot ${done?'done':''}">${l[0]}</div>`;
+  }).join('');
+}
+
+/* =========================================================
+   QUOTA-AWARE GEMINI CALLER
+========================================================= */
+function quotaLine(){
+  const c = state.quota.counts;
+  const lite = (c['gemini-3.5-flash-lite']||0) + (c['gemini-3.1-flash-lite-preview']||0);
+  const quality = MODELS['gemini-3.7-flash'] ?
+    ['gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3-flash-preview']
+      .reduce((s,m)=> s+(c[m]||0),0) : 0;
+  const bulk = (c['gemma-4-31b-it']||0)+(c['gemma-4-26b-a4b-it']||0);
+  document.getElementById('quotaBar').innerHTML =
+    `<span><b>${lite}</b>/1000 lite</span><span><b>${quality}</b>/80 quality</span><span><b>${bulk}</b> dự phòng</span>`;
+}
+
+async function callGemini(chainName, prompt, opts={}){
+  if(!state.apiKey){
+    openSettings();
+    throw new Error('missing_key');
+  }
+  const chain = CHAINS[chainName];
+  let lastErr = null;
+  for(const model of chain){
+    const cfg = MODELS[model];
+    const used = state.quota.counts[model] || 0;
+    if(used >= cfg.rpd) continue; // đã hết quota ngày cho model này
+    // rpm spacing
+    const last = state.quota.lastCall[model] || 0;
+    const minGap = 60000/cfg.rpm;
+    const wait = Math.max(0, minGap - (Date.now()-last));
+    if(wait>0) await new Promise(r=>setTimeout(r,wait));
+
+    try{
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${state.apiKey}`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          contents:[{parts:[{text:prompt}]}],
+          generationConfig: opts.json ? {responseMimeType:'application/json'} : {}
+        })
+      });
+      state.quota.lastCall[model] = Date.now();
+      if(!res.ok){
+        lastErr = `HTTP ${res.status} (${model})`;
+        if(res.status===429){ state.quota.counts[model] = cfg.rpd; } // coi như hết quota, chuyển model kế
+        persistAll(); quotaLine();
+        continue;
+      }
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if(!text){ lastErr = `Empty response (${model})`; continue; }
+      state.quota.counts[model] = used+1;
+      persistAll(); quotaLine();
+      return { text, modelUsed: model };
+    }catch(e){
+      lastErr = e.message + ` (${model})`;
+      continue;
+    }
+  }
+  throw new Error('Tất cả model đều hết quota hoặc lỗi hôm nay. ' + (lastErr||''));
+}
+
+function tryParseJson(text){
+  let t = text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+  try{ return JSON.parse(t); }catch(e){ return null; }
+}
+
+/* =========================================================
+   TABS
+========================================================= */
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('section.panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* =========================================================
+   SETTINGS MODAL
+========================================================= */
+function openSettings(){
+  document.getElementById('apiKeyInput').value = state.apiKey;
+  document.getElementById('settingsModal').classList.add('show');
+}
+document.getElementById('openSettings').onclick = openSettings;
+document.getElementById('closeSettings').onclick = ()=> document.getElementById('settingsModal').classList.remove('show');
+document.getElementById('saveApiKey').onclick = ()=>{
+  state.apiKey = document.getElementById('apiKeyInput').value.trim();
+  persistAll();
+  document.getElementById('settingsModal').classList.remove('show');
+};
+
+/* =========================================================
+   VOCAB MODULE (spaced repetition)
+========================================================= */
+function dueVocab(){
+  const t = todayStr();
+  return state.vocabBank.filter(v => v.nextReview <= t);
+}
+function currentTopic(){
+  return TOPICS[state.topicIndex % TOPICS.length];
+}
+async function ensureTodayVocab(){
+  const area = document.getElementById('vocabArea');
+  const due = dueVocab();
+  const TARGET_NEW = 6;
+  if(due.length >= TARGET_NEW){ renderVocabQueue(due); return; }
+  area.innerHTML = `<div class="loading">Đang tạo từ vựng mới theo chủ đề "${currentTopic()}"…</div>`;
+  const need = TARGET_NEW - due.length;
+  const existingTerms = state.vocabBank.map(v=>v.term).join(', ');
+  const prompt = `Bạn là trợ lý dạy từ vựng tiếng Anh chuyên ngành cho một kỹ sư nhiệt lạnh/kiểm toán năng lượng người Việt, trình độ tiếng Anh còn yếu, đang nhắm tới công việc tại các công ty như JLL, CBRE, Bureau Veritas, DNV.
+Hãy tạo ${need} từ/cụm từ tiếng Anh chuyên ngành thuộc chủ đề "${currentTopic()}", KHÔNG trùng với các từ đã học: [${existingTerms || 'chưa có từ nào'}].
+Trả về CHỈ một mảng JSON, mỗi phần tử có dạng:
+{"term":"...", "meaning_vi":"nghĩa tiếng Việt ngắn gọn", "example":"một câu ví dụ tiếng Anh dùng từ này trong ngữ cảnh báo cáo/công việc thật"}
+Không thêm chữ nào ngoài mảng JSON.`;
+  try{
+    const {text} = await callGemini('bulk_task', prompt, {json:true});
+    const arr = tryParseJson(text);
+    if(Array.isArray(arr)){
+      const t = todayStr();
+      arr.forEach(item=>{
+        if(!item.term) return;
+        state.vocabBank.push({
+          id: 'v'+Date.now()+Math.random().toString(36).slice(2,7),
+          term: item.term, meaning: item.meaning_vi||'', example: item.example||'',
+          topic: currentTopic(), interval:0, nextReview: t
+        });
+      });
+      state.topicIndex++;
+      persistAll();
+    }
+  }catch(e){
+    area.innerHTML = `<div class="err-banner">Không tạo được từ mới: ${e.message}</div>`;
+    if(due.length===0) return;
+  }
+  renderVocabQueue(dueVocab());
+}
+let vocabQueue = [];
+let vocabIdx = 0;
+function renderVocabQueue(due){
+  vocabQueue = due;
+  vocabIdx = 0;
+  renderVocabCard();
+}
+function renderVocabCard(){
+  const area = document.getElementById('vocabArea');
+  if(vocabIdx >= vocabQueue.length){
+    area.innerHTML = `<div class="card empty">Xong hết từ hôm nay 🎉<br>Quay lại vào ngày mai để ôn tiếp.</div>`;
+    return;
+  }
+  const v = vocabQueue[vocabIdx];
+  area.innerHTML = `
+    <div class="progress-line">Từ ${vocabIdx+1}/${vocabQueue.length}</div>
+    <div class="card">
+      <div class="topic-tag">${v.topic}</div>
+      <div class="term">${v.term}</div>
+      <div class="meaning-box" id="meaningBox">
+        <div>${v.meaning}</div>
+        <div class="example">"${v.example}"</div>
+      </div>
+      <button class="btn secondary full" id="revealBtn">Xem nghĩa</button>
+      <div class="rate-row" id="rateRow" style="display:none;">
+        <button class="btn wrong" id="btnWrong">Chưa nhớ</button>
+        <button class="btn correct" id="btnCorrect">Đã nhớ</button>
+      </div>
+    </div>`;
+  document.getElementById('revealBtn').onclick = ()=>{
+    document.getElementById('meaningBox').classList.add('show');
+    document.getElementById('revealBtn').style.display='none';
+    document.getElementById('rateRow').style.display='flex';
+  };
+  document.getElementById('btnCorrect').onclick = ()=> rateVocab(v, true);
+  document.getElementById('btnWrong').onclick = ()=> rateVocab(v, false);
+}
+function rateVocab(v, correct){
+  const idx = state.vocabBank.findIndex(x=>x.id===v.id);
+  if(idx>-1){
+    let step = correct ? Math.min(state.vocabBank[idx].interval+1, REVIEW_STEPS.length-1) : 0;
+    state.vocabBank[idx].interval = step;
+    const days = REVIEW_STEPS[step];
+    const next = new Date(Date.now()+days*86400000).toISOString().slice(0,10);
+    state.vocabBank[idx].nextReview = next;
+    persistAll();
+  }
+  markActiveToday();
+  vocabIdx++;
+  renderVocabCard();
+}
+
+/* =========================================================
+   LISTEN MODULE
+========================================================= */
+function renderListen(){
+  const dayIdx = new Date().getDate() % SOURCES.length;
+  const s = SOURCES[dayIdx];
+  document.getElementById('listenSuggestion').innerHTML =
+    `<b style="font-size:13px;">Gợi ý hôm nay</b><br>
+     <span style="font-size:14px;">Tìm và nghe nội dung của <b>${s.name}</b></span><br>
+     <span class="example">${s.hint}. Thử tìm trên YouTube: "${s.name} sustainability" hoặc "${s.name} energy".</span>`;
+  document.getElementById('sourceList').innerHTML = SOURCES.map(x=>
+    `<div class="source-item"><div><div class="name">${x.name}</div><div class="hint">${x.hint}</div></div></div>`
+  ).join('');
+  const btn = document.getElementById('markListenDone');
+  const done = state.listenDoneDate === todayStr();
+  btn.textContent = done ? 'Đã đánh dấu hôm nay ✓' : 'Đánh dấu đã nghe hôm nay';
+  btn.disabled = done;
+}
+document.getElementById('markListenDone').onclick = ()=>{
+  state.listenDoneDate = todayStr();
+  persistAll();
+  markActiveToday();
+  renderListen();
+};
+
+/* =========================================================
+   SPEAK MODULE — phrase drill + mock interview
+========================================================= */
+async function ensurePhrase(){
+  const today = todayStr();
+  if(state.currentPhrase && state.currentPhrase.startDate){
+    const daysSince = Math.floor((new Date(today) - new Date(state.currentPhrase.startDate))/86400000);
+    document.getElementById('phraseDay').textContent = `CÂU PHẢN XẠ — ngày ${daysSince+1}/4`;
+    document.getElementById('phraseText').textContent = state.currentPhrase.text;
+    document.getElementById('phraseNote').textContent = state.currentPhrase.note || '';
+    if(daysSince < 4) return;
+  }
+  await generateNewPhrase();
+}
+async function generateNewPhrase(){
+  document.getElementById('phraseText').textContent = 'Đang tạo câu mới…';
+  const prompt = `Tạo MỘT câu tiếng Anh ngắn (dưới 20 từ), tự nhiên, dùng để mở đầu câu trả lời phỏng vấn cho vị trí Energy Auditor / Sustainability Analyst, chủ đề: ${currentTopic()}.
+Trả về JSON: {"text":"câu tiếng Anh", "note":"giải thích ngắn bằng tiếng Việt khi nào dùng câu này"}. Chỉ trả JSON, không thêm gì khác.`;
+  try{
+    const {text} = await callGemini('bulk_task', prompt, {json:true});
+    const obj = tryParseJson(text);
+    if(obj && obj.text){
+      state.currentPhrase = {text:obj.text, note:obj.note||'', startDate:todayStr()};
+      persistAll();
+      document.getElementById('phraseDay').textContent = 'CÂU PHẢN XẠ — ngày 1/4';
+      document.getElementById('phraseText').textContent = obj.text;
+      document.getElementById('phraseNote').textContent = obj.note||'';
+    }
+  }catch(e){
+    document.getElementById('phraseText').textContent = 'Không tạo được câu: '+e.message;
+  }
+}
+document.getElementById('refreshPhrase').onclick = generateNewPhrase;
+
+let interviewTurns = 0;
+const MAX_INTERVIEW_TURNS = 6;
+function renderChat(){
+  const log = document.getElementById('chatLog');
+  log.innerHTML = state.interviewHistory.map(m=>
+    `<div class="msg ${m.role==='ai'?'ai':'me'}">${m.text}</div>`
+  ).join('');
+  log.scrollTop = log.scrollHeight;
+  document.getElementById('interviewCount').textContent = `${interviewTurns}/${MAX_INTERVIEW_TURNS} lượt`;
+}
+document.getElementById('startInterview').onclick = async ()=>{
+  state.interviewHistory = [];
+  interviewTurns = 0;
+  renderChat();
+  const prompt = `Bạn đóng vai nhà tuyển dụng phỏng vấn cho vị trí Sustainability Analyst / Energy Auditor tại một công ty quốc tế (như JLL/CBRE/Bureau Veritas). Ứng viên là kỹ sư nhiệt lạnh người Việt, tiếng Anh còn yếu, đang luyện phỏng vấn.
+Hãy chào hỏi ngắn gọn và đặt CÂU HỎI PHỎNG VẤN ĐẦU TIÊN bằng tiếng Anh, đơn giản, tự nhiên. Chỉ trả lời bằng tiếng Anh, không giải thích thêm, không dùng markdown.`;
+  try{
+    const {text} = await callGemini('mock_interview', prompt);
+    state.interviewHistory.push({role:'ai', text});
+    renderChat();
+  }catch(e){
+    state.interviewHistory.push({role:'ai', text:'[Lỗi] '+e.message});
+    renderChat();
+  }
+};
+document.getElementById('sendChat').onclick = async ()=>{
+  const input = document.getElementById('chatInput');
+  const val = input.value.trim();
+  if(!val) return;
+  state.interviewHistory.push({role:'me', text:val});
+  input.value='';
+  renderChat();
+  interviewTurns++;
+  markActiveToday();
+  if(interviewTurns >= MAX_INTERVIEW_TURNS){
+    state.interviewHistory.push({role:'ai', text:'[Hết lượt phỏng vấn hôm nay — bấm "Bắt đầu phỏng vấn mới" để luyện thêm lần khác]'});
+    renderChat();
+    return;
+  }
+  const historyText = state.interviewHistory.map(m=> (m.role==='ai'?'Interviewer: ':'Candidate: ')+m.text).join('\n');
+  const prompt = `Bạn đang đóng vai nhà tuyển dụng phỏng vấn ứng viên cho vị trí Sustainability Analyst / Energy Auditor. Đây là đoạn hội thoại tới giờ:
+${historyText}
+Hãy phản hồi ngắn gọn (1-2 câu) về câu trả lời của ứng viên bằng tiếng Anh đơn giản (khen hoặc góp ý nhẹ nếu câu trả lời có lỗi rõ ràng), sau đó đặt CÂU HỎI TIẾP THEO. Chỉ trả lời bằng tiếng Anh, không dùng markdown.`;
+  try{
+    const {text} = await callGemini('mock_interview', prompt);
+    state.interviewHistory.push({role:'ai', text});
+    renderChat();
+  }catch(e){
+    state.interviewHistory.push({role:'ai', text:'[Lỗi] '+e.message});
+    renderChat();
+  }
+};
+
+// Web Speech API (nhận diện giọng nói) — chỉ hoạt động trên trình duyệt hỗ trợ (chủ yếu Chrome/Android)
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+const micBtn = document.getElementById('micBtn');
+if(!SpeechRec){
+  micBtn.title = 'Trình duyệt này không hỗ trợ nhận diện giọng nói — dùng bàn phím';
+  micBtn.style.opacity = '0.4';
+} else {
+  let recog = new SpeechRec();
+  recog.lang = 'en-US';
+  recog.interimResults = false;
+  let listening = false;
+  micBtn.onclick = ()=>{
+    if(listening){ recog.stop(); return; }
+    recog.start();
+    listening = true;
+    micBtn.classList.add('listening');
+  };
+  recog.onresult = (e)=>{
+    const text = e.results[0][0].transcript;
+    const input = document.getElementById('chatInput');
+    input.value = (input.value ? input.value+' ' : '') + text;
+  };
+  recog.onend = ()=>{ listening=false; micBtn.classList.remove('listening'); };
+  recog.onerror = ()=>{ listening=false; micBtn.classList.remove('listening'); };
+}
+
+/* =========================================================
+   WRITE MODULE
+========================================================= */
+async function newWritingSentence(){
+  document.getElementById('vnSentence').textContent = 'Đang tạo câu…';
+  document.getElementById('writeFeedback').innerHTML = '';
+  const prompt = `Tạo MỘT câu tiếng Việt (văn phong báo cáo kiểm toán năng lượng / kỹ thuật, 1 câu, không quá dài) để người học dịch sang tiếng Anh. Chủ đề: ${currentTopic()}.
+Trả về JSON: {"vi":"câu tiếng Việt"}. Chỉ trả JSON.`;
+  try{
+    const {text} = await callGemini('bulk_task', prompt, {json:true});
+    const obj = tryParseJson(text);
+    if(obj && obj.vi){
+      state.currentVnSentence = obj.vi;
+      persistAll();
+      document.getElementById('vnSentence').textContent = obj.vi;
+    }
+  }catch(e){
+    document.getElementById('vnSentence').textContent = 'Không tạo được câu: '+e.message;
+  }
+}
+document.getElementById('newSentence').onclick = newWritingSentence;
+document.getElementById('gradeWriting').onclick = async ()=>{
+  const answer = document.getElementById('writeInput').value.trim();
+  const fb = document.getElementById('writeFeedback');
+  if(!answer){ fb.innerHTML = `<div class="err-banner">Viết bản dịch trước khi chấm điểm nhé.</div>`; return; }
+  fb.innerHTML = `<div class="loading">Đang chấm…</div>`;
+  const prompt = `Câu tiếng Việt gốc: "${state.currentVnSentence}"
+Bản dịch tiếng Anh của người học: "${answer}"
+Bạn là giáo viên tiếng Anh chuyên ngành kỹ thuật/kiểm toán năng lượng. Hãy chấm bản dịch này.
+Trả về JSON:
+{"verdict":"đạt hoặc chưa đạt","corrected":"bản tiếng Anh chuẩn hơn","feedback_vi":"nhận xét ngắn gọn bằng tiếng Việt, chỉ rõ lỗi chính","error_tags":["1-3 nhãn lỗi ngắn bằng tiếng Việt, ví dụ: sai thì, sai giới từ, dùng từ chưa tự nhiên"]}
+Chỉ trả JSON.`;
+  try{
+    const {text} = await callGemini('bulk_task', prompt, {json:true});
+    const obj = tryParseJson(text);
+    if(obj){
+      fb.innerHTML = `
+        <div class="feedback">
+          <b>${obj.verdict}</b><br>
+          <span class="example">Gợi ý: ${obj.corrected}</span><br>
+          <div style="margin-top:6px;">${obj.feedback_vi}</div>
+          <div style="margin-top:6px;">${(obj.error_tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+        </div>`;
+      state.writingErrors.push({date:todayStr(), tags:obj.error_tags||[]});
+      persistAll();
+      markActiveToday();
+    } else {
+      fb.innerHTML = `<div class="feedback">${text}</div>`;
+    }
+  }catch(e){
+    fb.innerHTML = `<div class="err-banner">${e.message}</div>`;
+  }
+};
+document.getElementById('weeklySummaryBtn').onclick = ()=>{
+  const cutoff = new Date(Date.now()-7*86400000).toISOString().slice(0,10);
+  const recent = state.writingErrors.filter(e=>e.date>=cutoff);
+  const freq = {};
+  recent.forEach(e=> (e.tags||[]).forEach(t=> freq[t]=(freq[t]||0)+1));
+  const sorted = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const box = document.getElementById('weeklySummary');
+  if(sorted.length===0){ box.innerHTML = `<div class="example">Chưa đủ dữ liệu tuần này.</div>`; return; }
+  box.innerHTML = sorted.map(([tag,count])=>`<div style="font-size:13px;margin-bottom:4px;">• ${tag} <span style="color:var(--ink-soft);">(${count} lần)</span></div>`).join('');
+};
+
+/* =========================================================
+   INIT
+========================================================= */
+function init(){
+  renderStreak();
+  quotaLine();
+  renderListen();
+  ensureTodayVocab();
+  ensurePhrase();
+  if(!state.currentVnSentence){ newWritingSentence(); }
+  else { document.getElementById('vnSentence').textContent = state.currentVnSentence; }
+  if(!state.apiKey){ setTimeout(openSettings, 400); }
+}
+init();
+</script>
+</body>
+</html>
