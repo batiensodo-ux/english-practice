@@ -347,37 +347,39 @@ const REVIEW_STEPS = [1,3,7,14,30,60]; // ngày
    STORAGE HELPERS
 ========================================================= */
 const todayStr = () => new Date().toISOString().slice(0,10);
-const load = (k,fallback) => { try{ const v = localStorage.getItem(k); return v?JSON.parse(v):fallback; }catch(e){ return fallback; } };
-const save = (k,v) => localStorage.setItem(k, JSON.stringify(v));
+const STORAGE_KEY = 'tram-luyen-tieng-anh-state-v2';
 
-let state = {
-  apiKey: load('apiKey',''),
-  vocabBank: load('vocabBank', []),      // {id,term,meaning,example,topic,interval,nextReview}
-  topicIndex: load('topicIndex', 0),
-  streak: load('streak', {lastActiveDate:null, count:0, last7:[false,false,false,false,false,false,false]}),
-  quota: load('quota', {date: todayStr(), counts:{}, lastCall:{}}),
-  writingErrors: load('writingErrors', []), // {date, tags:[]}
-  currentVnSentence: load('currentVnSentence', null),
-  currentPhrase: load('currentPhrase', null),
-  interviewHistory: [],
-  listenDoneDate: load('listenDoneDate', null),
-};
-
-function persistAll(){
-  save('apiKey', state.apiKey);
-  save('vocabBank', state.vocabBank);
-  save('topicIndex', state.topicIndex);
-  save('streak', state.streak);
-  save('quota', state.quota);
-  save('writingErrors', state.writingErrors);
-  save('currentVnSentence', state.currentVnSentence);
-  save('currentPhrase', state.currentPhrase);
-  save('listenDoneDate', state.listenDoneDate);
+function defaultState(){
+  return {
+    apiKey: '',
+    vocabBank: [],
+    topicIndex: 0,
+    streak: {lastActiveDate:null, count:0, last7:[false,false,false,false,false,false,false]},
+    quota: {date: todayStr(), counts:{}, lastCall:{}},
+    writingErrors: [],
+    currentVnSentence: null,
+    currentPhrase: null,
+    interviewHistory: [],
+    listeningToday: null,
+  };
 }
 
-if(state.quota.date !== todayStr()){
-  state.quota = {date: todayStr(), counts:{}, lastCall:{}};
-  persistAll();
+let state = defaultState();
+
+async function loadState(){
+  try{
+    const res = await window.storage.get(STORAGE_KEY, false);
+    if(res && res.value){
+      const saved = JSON.parse(res.value);
+      state = Object.assign(defaultState(), saved);
+    }
+  }catch(e){ /* chưa có dữ liệu lưu trước đó, dùng mặc định */ }
+}
+
+async function persistAll(){
+  try{
+    await window.storage.set(STORAGE_KEY, JSON.stringify(state), false);
+  }catch(e){ /* best effort, không chặn UI nếu lỗi */ }
 }
 
 /* =========================================================
@@ -562,6 +564,9 @@ function renderVocabCard(){
     return;
   }
   const v = vocabQueue[vocabIdx];
+  // Từ mới hoặc từ vừa quên (interval reset về 0) mới cần bắt gõ lại 5 lần.
+  // Từ đã lên interval cao hơn (đã nhớ tốt) thì chỉ ôn nhanh bằng flashcard như trước.
+  const needsTyping = v.interval === 0;
   area.innerHTML = `
     <div class="progress-line">Từ ${vocabIdx+1}/${vocabQueue.length}</div>
     <div class="card">
@@ -572,15 +577,76 @@ function renderVocabCard(){
         <div class="example">"${v.example}"</div>
       </div>
       <button class="btn secondary full" id="revealBtn">Xem nghĩa</button>
+      ${needsTyping ? `
+      <div class="type-drill" id="typeDrill" style="display:none;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);">
+        <div class="progress-line" style="margin-bottom:6px;">Gõ lại từ này — cần đủ 5 lần đúng để nhớ mặt chữ</div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="typeInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Gõ lại từ ở trên..." style="flex:1;border:1px solid var(--line);border-radius:6px;padding:9px 10px;font-family:var(--mono);font-size:13px;">
+          <button class="btn secondary" id="typeCheckBtn">Kiểm tra</button>
+        </div>
+        <div id="typeDots" style="display:flex;gap:5px;margin-top:8px;"></div>
+        <div class="example" id="typeFeedback" style="margin-top:6px;"></div>
+      </div>` : ``}
       <div class="rate-row" id="rateRow" style="display:none;">
         <button class="btn wrong" id="btnWrong">Chưa nhớ</button>
         <button class="btn correct" id="btnCorrect">Đã nhớ</button>
       </div>
     </div>`;
+
+  const TYPE_GOAL = 5;
+  let typedCount = 0;
+
+  function renderDots(){
+    const dotsEl = document.getElementById('typeDots');
+    if(!dotsEl) return;
+    dotsEl.innerHTML = '';
+    for(let i=0;i<TYPE_GOAL;i++){
+      const d = document.createElement('span');
+      d.style.width='8px'; d.style.height='8px'; d.style.borderRadius='50%';
+      d.style.display='inline-block';
+      d.style.background = i<typedCount ? 'var(--teal)' : 'var(--line)';
+      dotsEl.appendChild(d);
+    }
+  }
+
   document.getElementById('revealBtn').onclick = ()=>{
     document.getElementById('meaningBox').classList.add('show');
     document.getElementById('revealBtn').style.display='none';
-    document.getElementById('rateRow').style.display='flex';
+    if(needsTyping){
+      const drill = document.getElementById('typeDrill');
+      drill.style.display='block';
+      renderDots();
+      const input = document.getElementById('typeInput');
+      const checkBtn = document.getElementById('typeCheckBtn');
+      const fb = document.getElementById('typeFeedback');
+      function submit(){
+        const val = input.value.trim().toLowerCase();
+        if(!val) return;
+        if(val === v.term.trim().toLowerCase()){
+          typedCount = Math.min(TYPE_GOAL, typedCount+1);
+          input.value = '';
+          fb.textContent = `Chính xác! (${typedCount}/${TYPE_GOAL})`;
+          fb.style.color = 'var(--teal)';
+          renderDots();
+          if(typedCount >= TYPE_GOAL){
+            input.disabled = true;
+            checkBtn.disabled = true;
+            fb.textContent = 'Đã gõ đủ 5 lần — nhớ mặt chữ tốt rồi! ✓';
+            document.getElementById('rateRow').style.display='flex';
+          }
+        } else {
+          fb.textContent = 'Chưa đúng, thử lại nhé.';
+          fb.style.color = 'var(--red)';
+          input.select();
+        }
+        input.focus();
+      }
+      checkBtn.onclick = submit;
+      input.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); submit(); } });
+      input.focus();
+    } else {
+      document.getElementById('rateRow').style.display='flex';
+    }
   };
   document.getElementById('btnCorrect').onclick = ()=> rateVocab(v, true);
   document.getElementById('btnWrong').onclick = ()=> rateVocab(v, false);
@@ -680,8 +746,11 @@ function renderSourceList(){
     SOURCES.map(x=>`<div class="source-item"><div><div class="name">${x.name}</div><div class="hint">${x.hint}</div></div></div>`).join('');
 }
 
-let listeningState = load('listeningToday', null);
-if(listeningState && listeningState.date !== todayStr()) listeningState = null;
+let listeningState = null;
+function initListeningState(){
+  listeningState = state.listeningToday || null;
+  if(listeningState && listeningState.date !== todayStr()) listeningState = null;
+}
 let listenQIdx = 0, listenScore = 0;
 
 function speakText(text, rate){
@@ -736,7 +805,8 @@ function renderListenQuiz(){
   if(listenQIdx >= listeningState.questions.length){
     listeningState.completed = true;
     listeningState.score = listenScore;
-    save('listeningToday', listeningState);
+    state.listeningToday = listeningState;
+    persistAll();
     markActiveToday();
     box.innerHTML = `<div class="card empty">Hoàn thành! Điểm ${listenScore}/${listeningState.questions.length} 🎉</div>`;
     return;
@@ -770,7 +840,8 @@ Chỉ trả JSON, không thêm chữ nào khác.`;
     const obj = tryParseJson(text);
     if(obj && obj.passage && Array.isArray(obj.questions) && obj.questions.length){
       listeningState = { date: todayStr(), topic: currentTopic(), passage: obj.passage, questions: obj.questions, completed:false, score:0 };
-      save('listeningToday', listeningState);
+      state.listeningToday = listeningState;
+      persistAll();
       renderListeningExercise();
     } else {
       box.innerHTML = `<div class="err-banner">Không tạo được bài nghe, thử lại.</div><button class="btn full" id="retryListen">Thử lại</button>`;
@@ -1035,7 +1106,13 @@ document.getElementById('weeklySummaryBtn').onclick = ()=>{
 /* =========================================================
    INIT
 ========================================================= */
-function init(){
+async function init(){
+  await loadState();
+  if(state.quota.date !== todayStr()){
+    state.quota = {date: todayStr(), counts:{}, lastCall:{}};
+    persistAll();
+  }
+  initListeningState();
   renderStreak();
   quotaLine();
   renderSourceList();
