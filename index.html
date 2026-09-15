@@ -366,20 +366,20 @@ function defaultState(){
 
 let state = defaultState();
 
-async function loadState(){
+function loadState(){
   try{
-    const res = await window.storage.get(STORAGE_KEY, false);
-    if(res && res.value){
-      const saved = JSON.parse(res.value);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const saved = JSON.parse(raw);
       state = Object.assign(defaultState(), saved);
     }
   }catch(e){ /* chưa có dữ liệu lưu trước đó, dùng mặc định */ }
 }
 
-async function persistAll(){
+function persistAll(){
   try{
-    await window.storage.set(STORAGE_KEY, JSON.stringify(state), false);
-  }catch(e){ /* best effort, không chặn UI nếu lỗi */ }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }catch(e){ /* best effort, không chặn UI nếu lỗi (ví dụ storage bị chặn) */ }
 }
 
 /* =========================================================
@@ -1107,7 +1107,7 @@ document.getElementById('weeklySummaryBtn').onclick = ()=>{
    INIT
 ========================================================= */
 async function init(){
-  await loadState();
+  loadState();
   if(state.quota.date !== todayStr()){
     state.quota = {date: todayStr(), counts:{}, lastCall:{}};
     persistAll();
