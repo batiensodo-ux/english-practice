@@ -361,6 +361,7 @@ function defaultState(){
     currentPhrase: null,
     interviewHistory: [],
     listeningToday: null,
+    vocabBatchDate: null,
   };
 }
 
@@ -515,7 +516,21 @@ async function ensureTodayVocab(){
   const area = document.getElementById('vocabArea');
   const due = dueVocab();
   const TARGET_NEW = 6;
-  if(due.length >= TARGET_NEW){ renderVocabQueue(due); return; }
+  const today = todayStr();
+
+  // Nếu hôm nay đã tạo batch từ mới rồi (kể cả sau khi F5) thì không tạo thêm nữa —
+  // chỉ hiển thị đúng số từ còn đến hạn hôm nay (có thể là 0 nếu đã học xong hết).
+  if(state.vocabBatchDate === today){
+    renderVocabQueue(due);
+    return;
+  }
+
+  if(due.length >= TARGET_NEW){
+    state.vocabBatchDate = today;
+    persistAll();
+    renderVocabQueue(due);
+    return;
+  }
   area.innerHTML = `<div class="loading">Đang tạo từ vựng mới theo chủ đề "${currentTopic()}"…</div>`;
   const need = TARGET_NEW - due.length;
   const existingTerms = state.vocabBank.map(v=>v.term).join(', ');
@@ -538,6 +553,7 @@ Không thêm chữ nào ngoài mảng JSON.`;
         });
       });
       state.topicIndex++;
+      state.vocabBatchDate = today;
       persistAll();
     }
   }catch(e){
@@ -557,7 +573,7 @@ function renderVocabCard(){
   const area = document.getElementById('vocabArea');
   if(vocabIdx >= vocabQueue.length){
     if(vocabQueue.length === 0){
-      area.innerHTML = `<div class="card empty">Không có từ để ôn hôm nay.</div>`;
+      area.innerHTML = `<div class="card empty">Bạn đã học xong từ vựng hôm nay rồi! ✓<br>Quay lại vào ngày mai để ôn tiếp theo lịch giãn cách.</div>`;
       return;
     }
     renderMatchGame(vocabQueue.slice(0,6));
