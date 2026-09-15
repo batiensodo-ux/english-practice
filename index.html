@@ -1081,10 +1081,20 @@ Chỉ trả JSON.`;
           <span class="example">Gợi ý: ${obj.corrected}</span><br>
           <div style="margin-top:6px;">${obj.feedback_vi}</div>
           <div style="margin-top:6px;">${(obj.error_tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+          <div class="type-drill" id="writeTypeDrill" style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);">
+            <div class="progress-line" style="margin-bottom:6px;">Chép lại đúng câu gợi ý — cần đủ 5 lần đúng để nhớ</div>
+            <textarea id="writeTypeInput" rows="2" placeholder="Chép lại câu gợi ý ở trên..." style="width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;padding:9px 10px;font-family:var(--mono);font-size:13px;"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button class="btn secondary" id="writeTypeCheckBtn">Kiểm tra</button>
+            </div>
+            <div id="writeTypeDots" style="display:flex;gap:5px;margin-top:8px;"></div>
+            <div class="example" id="writeTypeFeedback" style="margin-top:6px;"></div>
+          </div>
         </div>`;
       state.writingErrors.push({date:todayStr(), tags:obj.error_tags||[]});
       persistAll();
       markActiveToday();
+      setupWriteTypeDrill(obj.corrected);
     } else {
       fb.innerHTML = `<div class="feedback">${text}</div>`;
     }
@@ -1092,6 +1102,57 @@ Chỉ trả JSON.`;
     fb.innerHTML = `<div class="err-banner">${e.message}</div>`;
   }
 };
+
+function normalizeSentence(s){
+  return s.trim().toLowerCase().replace(/\s+/g,' ').replace(/[.!?]+$/,'');
+}
+
+function setupWriteTypeDrill(targetSentence){
+  const TYPE_GOAL = 5;
+  let typedCount = 0;
+  const target = normalizeSentence(targetSentence);
+  const input = document.getElementById('writeTypeInput');
+  const checkBtn = document.getElementById('writeTypeCheckBtn');
+  const dotsEl = document.getElementById('writeTypeDots');
+  const fbEl = document.getElementById('writeTypeFeedback');
+
+  function renderDots(){
+    dotsEl.innerHTML = '';
+    for(let i=0;i<TYPE_GOAL;i++){
+      const d = document.createElement('span');
+      d.style.width='8px'; d.style.height='8px'; d.style.borderRadius='50%';
+      d.style.display='inline-block';
+      d.style.background = i<typedCount ? 'var(--teal)' : 'var(--line)';
+      dotsEl.appendChild(d);
+    }
+  }
+  renderDots();
+
+  function submit(){
+    const val = normalizeSentence(input.value);
+    if(!val) return;
+    if(val === target){
+      typedCount = Math.min(TYPE_GOAL, typedCount+1);
+      input.value = '';
+      fbEl.textContent = `Chính xác! (${typedCount}/${TYPE_GOAL})`;
+      fbEl.style.color = 'var(--teal)';
+      renderDots();
+      if(typedCount >= TYPE_GOAL){
+        input.disabled = true;
+        checkBtn.disabled = true;
+        fbEl.textContent = 'Đã chép đủ 5 lần đúng — củng cố xong câu này! ✓';
+      }
+    } else {
+      fbEl.textContent = 'Chưa khớp với câu gợi ý, thử lại nhé.';
+      fbEl.style.color = 'var(--red)';
+    }
+    input.focus();
+  }
+  checkBtn.onclick = submit;
+  input.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); submit(); }
+  });
+}
 document.getElementById('weeklySummaryBtn').onclick = ()=>{
   const cutoff = new Date(Date.now()-7*86400000).toISOString().slice(0,10);
   const recent = state.writingErrors.filter(e=>e.date>=cutoff);
