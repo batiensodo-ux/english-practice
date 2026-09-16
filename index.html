@@ -233,9 +233,14 @@
       <div class="audio-controls">
         <button class="btn secondary" id="playOriginal">▶ Nghe mẫu</button>
         <select class="rate-select" id="phraseRate">
-          <option value="0.75">Chậm</option>
+          <option value="0.5">Rất chậm</option>
+          <option value="0.65">Chậm</option>
+          <option value="0.8">Hơi chậm</option>
           <option value="1" selected>Bình thường</option>
         </select>
+      </div>
+      <div class="audio-controls">
+        <select class="rate-select" id="phraseVoice" style="max-width:220px;"></select>
       </div>
       <div class="audio-controls">
         <button class="btn" id="recordBtn">🎙 Bắt đầu ghi âm shadowing</button>
@@ -769,12 +774,54 @@ function initListeningState(){
 }
 let listenQIdx = 0, listenScore = 0;
 
-function speakText(text, rate){
+let cachedVoices = [];
+function loadVoicesOnce(){
+  return new Promise(resolve=>{
+    let voices = window.speechSynthesis.getVoices();
+    if(voices.length){ resolve(voices); return; }
+    window.speechSynthesis.onvoiceschanged = () => {
+      resolve(window.speechSynthesis.getVoices());
+    };
+    // fallback nếu trình duyệt không bắn sự kiện
+    setTimeout(()=> resolve(window.speechSynthesis.getVoices()), 500);
+  });
+}
+
+function scoreVoiceQuality(v){
+  const n = v.name.toLowerCase();
+  if(n.includes('google')) return 3;
+  if(n.includes('natural') || n.includes('neural') || n.includes('online')) return 3;
+  if(n.includes('microsoft') && (n.includes('aria')||n.includes('jenny')||n.includes('guy'))) return 2;
+  return 1;
+}
+
+async function populateVoiceSelects(){
+  if(!window.speechSynthesis) return;
+  const voices = await loadVoicesOnce();
+  cachedVoices = voices.filter(v=>v.lang && v.lang.toLowerCase().startsWith('en'));
+  if(cachedVoices.length === 0) cachedVoices = voices; // fallback nếu máy không có giọng en nào rõ ràng
+  cachedVoices.sort((a,b)=> scoreVoiceQuality(b)-scoreVoiceQuality(a));
+  const options = cachedVoices.map((v,i)=>`<option value="${i}">${v.name} (${v.lang})</option>`).join('');
+  ['phraseVoice','listenVoice'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.innerHTML = options;
+  });
+}
+
+function getSelectedVoice(selectId){
+  const el = document.getElementById(selectId);
+  if(!el || !cachedVoices.length) return null;
+  const idx = parseInt(el.value, 10);
+  return cachedVoices[idx] || cachedVoices[0];
+}
+
+function speakText(text, rate, voice){
   if(!window.speechSynthesis){ alert('Trình duyệt này không hỗ trợ đọc giọng nói tự động.'); return; }
   window.speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = 'en-US';
   utter.rate = rate || 1;
+  if(voice) utter.voice = voice;
   window.speechSynthesis.speak(utter);
 }
 
@@ -791,17 +838,23 @@ function renderListeningExercise(){
     <div class="audio-controls">
       <button class="btn secondary" id="playBtn">▶ Nghe đoạn hội thoại</button>
       <select class="rate-select" id="rateSelect">
-        <option value="0.75">Chậm</option>
+        <option value="0.5">Rất chậm</option>
+        <option value="0.65">Chậm</option>
+        <option value="0.8">Hơi chậm</option>
         <option value="1" selected>Bình thường</option>
       </select>
+    </div>
+    <div class="audio-controls">
+      <select class="rate-select" id="listenVoice" style="max-width:220px;"></select>
     </div>
     <button class="small-link" id="toggleTranscript">Hiện transcript</button>
     <div class="transcript-box" id="transcriptBox" style="display:none;">${listeningState.passage}</div>
     <div id="quizArea" style="margin-top:14px;"></div>
   `;
   document.getElementById('playBtn').onclick = ()=>{
-    speakText(listeningState.passage, parseFloat(document.getElementById('rateSelect').value));
+    speakText(listeningState.passage, parseFloat(document.getElementById('rateSelect').value), getSelectedVoice('listenVoice'));
   };
+  populateVoiceSelects();
   document.getElementById('toggleTranscript').onclick = (e)=>{
     const t = document.getElementById('transcriptBox');
     const show = t.style.display === 'none';
@@ -904,7 +957,7 @@ Trả về JSON: {"text":"câu tiếng Anh", "note":"giải thích ngắn bằng
 document.getElementById('refreshPhrase').onclick = generateNewPhrase;
 document.getElementById('playOriginal').onclick = ()=>{
   if(!state.currentPhrase) return;
-  speakText(state.currentPhrase.text, parseFloat(document.getElementById('phraseRate').value));
+  speakText(state.currentPhrase.text, parseFloat(document.getElementById('phraseRate').value), getSelectedVoice('phraseVoice'));
 };
 
 /* ---- Shadowing: record yourself, play back, rough word-match check ---- */
@@ -1185,6 +1238,7 @@ document.getElementById('weeklySummaryBtn').onclick = ()=>{
 ========================================================= */
 async function init(){
   loadState();
+  populateVoiceSelects();
   if(state.quota.date !== todayStr()){
     state.quota = {date: todayStr(), counts:{}, lastCall:{}};
     persistAll();
