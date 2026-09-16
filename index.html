@@ -850,6 +850,8 @@ function renderListeningExercise(){
     <button class="small-link" id="toggleTranscript">Hiện transcript</button>
     <div class="transcript-box" id="transcriptBox" style="display:none;">${listeningState.passage}</div>
     <div id="quizArea" style="margin-top:14px;"></div>
+    <div id="listenReviewArea" style="margin-top:14px;"></div>
+    <div id="dictationArea" style="margin-top:14px;"></div>
   `;
   document.getElementById('playBtn').onclick = ()=>{
     speakText(listeningState.passage, parseFloat(document.getElementById('rateSelect').value), getSelectedVoice('listenVoice'));
@@ -869,6 +871,8 @@ function renderListenQuiz(){
   const box = document.getElementById('quizArea');
   if(listeningState.completed){
     box.innerHTML = `<div class="card empty">Đã hoàn thành bài nghe hôm nay — điểm ${listeningState.score}/${listeningState.questions.length} ✓</div>`;
+    renderListenReview();
+    renderDictation();
     return;
   }
   if(listenQIdx >= listeningState.questions.length){
@@ -878,8 +882,11 @@ function renderListenQuiz(){
     persistAll();
     markActiveToday();
     box.innerHTML = `<div class="card empty">Hoàn thành! Điểm ${listenScore}/${listeningState.questions.length} 🎉</div>`;
+    renderListenReview();
+    renderDictation();
     return;
   }
+  if(!listeningState.userAnswers) listeningState.userAnswers = [];
   const q = listeningState.questions[listenQIdx];
   box.innerHTML = `
     <div class="quiz-q">Câu ${listenQIdx+1}/${listeningState.questions.length}: ${q.q}</div>
@@ -890,11 +897,114 @@ function renderListenQuiz(){
       const i = parseInt(btn.dataset.i);
       const opts = box.querySelectorAll('.quiz-opt');
       opts.forEach(b=>b.disabled = true);
+      listeningState.userAnswers[listenQIdx] = i;
+      state.listeningToday = listeningState;
+      persistAll();
       if(i === q.correctIndex){ btn.classList.add('correct'); listenScore++; }
       else{ btn.classList.add('wrong'); opts[q.correctIndex].classList.add('correct'); }
       setTimeout(()=>{ listenQIdx++; renderListenQuiz(); }, 1300);
     };
   });
+}
+
+function renderListenReview(){
+  const area = document.getElementById('listenReviewArea');
+  if(!area || !listeningState.userAnswers) return;
+  const rows = listeningState.questions.map((q,i)=>{
+    const userIdx = listeningState.userAnswers[i];
+    const answered = userIdx !== undefined && userIdx !== null;
+    const isCorrect = answered && userIdx === q.correctIndex;
+    return `<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed var(--line);">
+      <div style="font-weight:600;">${i+1}. ${q.q}</div>
+      <div style="color:${isCorrect?'var(--teal)':'var(--red)'};margin-top:4px;">Bạn chọn: ${answered? q.options[userIdx] : '(chưa trả lời)'} ${answered ? (isCorrect?'✓':'✗') : ''}</div>
+      ${!isCorrect ? `<div style="color:var(--ink-soft);margin-top:2px;">Đáp án đúng: ${q.options[q.correctIndex]}</div>` : ``}
+    </div>`;
+  }).join('');
+  area.innerHTML = `
+    <button class="small-link" id="toggleReview">Xem lại các câu đã làm</button>
+    <div id="reviewBody" style="display:none;margin-top:10px;">${rows}</div>
+  `;
+  document.getElementById('toggleReview').onclick = (e)=>{
+    const body = document.getElementById('reviewBody');
+    const show = body.style.display === 'none';
+    body.style.display = show ? 'block' : 'none';
+    e.target.textContent = show ? 'Ẩn phần xem lại' : 'Xem lại các câu đã làm';
+  };
+}
+
+function splitIntoSentences(text){
+  const matches = text.match(/[^.!?]+[.!?]+(\s+|$)/g);
+  const list = matches ? matches.map(s=>s.trim()).filter(Boolean) : [text.trim()];
+  return list.length ? list : [text.trim()];
+}
+
+let dictationSentences = [];
+
+function renderDictation(){
+  const area = document.getElementById('dictationArea');
+  if(!area) return;
+  dictationSentences = splitIntoSentences(listeningState.passage);
+  if(!listeningState.dictationDone || listeningState.dictationDone.length !== dictationSentences.length){
+    listeningState.dictationDone = dictationSentences.map(()=>false);
+    state.listeningToday = listeningState;
+    persistAll();
+  }
+  const idx = listeningState.dictationDone.findIndex(d=>!d);
+  if(idx === -1){
+    area.innerHTML = `<div class="progress-line" style="margin-bottom:6px;">Chép chính tả từng câu</div><div class="card empty">Bạn đã chép chính tả xong toàn bộ ${dictationSentences.length} câu! ✓</div>`;
+    return;
+  }
+  const sentence = dictationSentences[idx];
+  area.innerHTML = `
+    <div class="progress-line" style="margin-bottom:6px;">Chép chính tả — câu ${idx+1}/${dictationSentences.length}</div>
+    <div class="audio-controls">
+      <button class="btn secondary" id="dictationPlayBtn">▶ Nghe câu này</button>
+      <select class="rate-select" id="dictationRate">
+        <option value="0.5">Rất chậm</option>
+        <option value="0.65" selected>Chậm</option>
+        <option value="0.8">Hơi chậm</option>
+        <option value="1">Bình thường</option>
+      </select>
+    </div>
+    <textarea id="dictationInput" rows="2" placeholder="Gõ lại câu bạn vừa nghe..." style="width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;padding:9px 10px;font-family:var(--mono);font-size:13px;margin-top:8px;"></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button class="btn" id="dictationCheckBtn">Kiểm tra</button>
+      <button class="btn subtle" id="dictationSkipBtn">Xem đáp án / Bỏ qua câu này</button>
+    </div>
+    <div class="example" id="dictationFeedback" style="margin-top:8px;"></div>
+  `;
+  document.getElementById('dictationPlayBtn').onclick = ()=>{
+    speakText(sentence, parseFloat(document.getElementById('dictationRate').value), getSelectedVoice('listenVoice'));
+  };
+  const fb = document.getElementById('dictationFeedback');
+  const input = document.getElementById('dictationInput');
+  function markDone(){
+    listeningState.dictationDone[idx] = true;
+    state.listeningToday = listeningState;
+    persistAll();
+    setTimeout(renderDictation, 900);
+  }
+  document.getElementById('dictationCheckBtn').onclick = ()=>{
+    const val = normalizeSentence(input.value);
+    const target = normalizeSentence(sentence);
+    if(val === target){
+      fb.textContent = 'Chính xác! ✓';
+      fb.style.color = 'var(--teal)';
+      markDone();
+    } else {
+      fb.textContent = 'Chưa khớp, nghe lại và thử gõ lại nhé.';
+      fb.style.color = 'var(--red)';
+    }
+  };
+  input.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); document.getElementById('dictationCheckBtn').click(); }
+  });
+  document.getElementById('dictationSkipBtn').onclick = ()=>{
+    fb.innerHTML = `Đáp án: <i>${sentence}</i>`;
+    fb.style.color = 'var(--ink-soft)';
+    markDone();
+  };
+  populateVoiceSelects();
 }
 
 async function generateListeningExercise(){
